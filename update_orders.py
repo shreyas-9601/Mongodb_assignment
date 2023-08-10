@@ -1,7 +1,7 @@
 from orders_model import OrdersModel
 from process_orders_data import Order
 
-class UpdateOrder:
+class Acme:
     
     def update_orders(self):
         orders=OrdersModel.objects
@@ -12,5 +12,5 @@ class UpdateOrder:
         print('All orders updated to database successfully')
 
 if __name__=='__main__':                
-    updateorder = UpdateOrder()
-    updateorder.update_orders()
+    acme = Acme()
+    acme.update_orders()
