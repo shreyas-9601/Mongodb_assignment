@@ -1,6 +1,7 @@
 from datetime import datetime, date
 import csv
 import re  
+from orders_model import OrdersModel
         
 class User:
     def __init__(self,name,birthday,email,state,zipcode):
@@ -15,10 +16,9 @@ class User:
 
 
     def is_valid_age(self):
-        birthday_obj = datetime.strptime(self.birthday, '%m/%d/%Y')
         today = date.today()
-        age = today.year-birthday_obj.year
-        if (today.month < birthday_obj.month or (today.month == birthday_obj.month and today.day < birthday_obj.day)):
+        age = today.year-self.birthday.year
+        if (today.month < self.birthday.month or (today.month == self.birthday.month and today.day < self.birthday.day)):
             age -= 1
         return age >= 21
 
@@ -37,8 +37,7 @@ class User:
 
 
     def first_monday_born(self):
-        birthday_obj = datetime.strptime(self.birthday, '%m/%d/%Y')
-        return birthday_obj.weekday() != 0 or birthday_obj.day > 7
+        return self.birthday.weekday() != 0 or self.birthday.day > 7
 
             
 class Order:
@@ -47,17 +46,19 @@ class Order:
         self.user=User(name,birthday,email,state,zipcode)
         
     def validate_orders(self):
-        return self.user.is_valid_state() and self.user.is_valid_zipcode() and self.user.is_valid_age() and self.user.is_valid_age() and self.user.is_valid_mail() and self.user.first_monday_born()           
-        
-
+        return self.user.is_valid_state() and self.user.is_valid_zipcode() and self.user.is_valid_age() and self.user.is_valid_age() and self.user.is_valid_mail() and self.user.first_monday_born() 
     
+    def save_orders(self):
+        ordermodel= OrdersModel(order_id= self.order_id, name= self.user.name, birthday= self.user.birthday, email=self.user.email, state= self.user.state, zipcode= self.user.zipcode)
+        OrdersModel.save(ordermodel)
+        
+    def mark_as_valid(self):
+        if(self.validate_orders()):
+            OrdersModel.objects(order_id=self.order_id).update_one(set__isvalid=True)
+
+        
     
 class Acme:
-    def __init__(self):
-        self.valid_orders=[]
-        self.invalid_orders=[]
-    
-    
     def process(self):
         with open('orders.csv', 'r') as file:
             csvreader = csv.reader(file)
@@ -73,30 +74,25 @@ class Acme:
             for row in csvreader:
                 order_id = row[id_index]
                 name = row[name_index]
-                birthday = row[birthday_index]
+                birthday=datetime.strptime(row[birthday_index], '%m/%d/%Y')
                 email = row[email_index]
                 state = row[state_index]
                 zipcode = row[zipcode_index]
                 
-                order=Order(order_id, name, birthday, email, state, zipcode)
-
-                if (order.validate_orders()):
-                    self.valid_orders.append(order)
-                else:
-                    self.invalid_orders.append(order)
-                    
-                    
-    def write(self):
-        with open('valid.csv', 'w', newline='') as valid_file: 
-            writer = csv.writer(valid_file) 
-            writer.writerows([[Order.order_id]] for Order in self.valid_orders)
+                newOrder=Order(order_id, name, birthday, email, state, zipcode)
+                newOrder.save_orders()
+            print('All orders transfered to database successfully')
             
-        with open('invalid.csv', 'w', newline='') as invalid_file: 
-            writer = csv.writer(invalid_file) 
-            writer.writerows([[Order.order_id]] for Order in self.invalid_orders)
+    def update_orders(self):
+        orders=OrdersModel.objects
+        
+        for order in orders:
+            neworder=Order(order.order_id,order.name,order.birthday,order.email,order.state,order.zipcode)
+            neworder.mark_as_valid()
+        print('All orders updated to database successfully')
             
             
 if __name__ == '__main__':
     acme = Acme()
-    acme.process()
-    acme.write()          
+    acme.process() 
+    acme.update_orders()        
